@@ -35,6 +35,7 @@ const player = {
   x: 120,
   size: 42,
   y: groundY - 42,
+  prevY: groundY - 42,
   vy: 0,
   gravity: 0.9,
   jumpPower: -15,
@@ -92,6 +93,9 @@ function rectsOverlap(a, b) {
 function update() {
   if (!running) return;
 
+  // track previous vertical position to detect landing-from-above
+  player.prevY = player.y;
+
   // Actualiza jugador
   player.vy += player.gravity;
   player.y += player.vy;
@@ -120,8 +124,32 @@ function update() {
     const playerBox = { x: player.x, y: player.y, w: player.size, h: player.size };
     const obBox = { x: ob.x, y: ob.y, w: ob.w, h: ob.h };
     if (rectsOverlap(playerBox, obBox)) {
-      // More accurate spike collision could be added, but this is fine for now
-      gameOver();
+      if (ob.type === 'spike') {
+        // contact with spikes is always lethal
+        gameOver();
+      } else if (ob.type === 'block') {
+        // Determine if the player is landing on top of the block.
+        // Use previous vertical position to confirm the player came from above.
+        const prevBottom = player.prevY + player.size;
+        const currBottom = player.y + player.size;
+        const obTop = ob.y;
+
+        // If the player's previous bottom was at or above the block top (<=) and
+        // now the bottom is at or below the block top (>=), and the player is moving down,
+        // treat this as a safe landing on top of the block.
+        if (prevBottom <= obTop && currBottom >= obTop && player.vy >= 0) {
+          // Snap the player to the top of the block and reset vertical motion
+          player.y = obTop - player.size;
+          player.vy = 0;
+          player.onGround = true;
+        } else {
+          // Any other overlap (side, bottom, or hitting while moving up) is lethal
+          gameOver();
+        }
+      } else {
+        // fallback: lethal
+        gameOver();
+      }
     }
   }
 
