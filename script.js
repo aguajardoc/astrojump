@@ -4,8 +4,8 @@
   Controles: click / touch / Space para saltar, R para reiniciar.
 */
 
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
 
 // Tamaño base y ajuste por devicePixelRatio
 const WIDTH = 800;
@@ -13,15 +13,15 @@ const HEIGHT = 450;
 
 function resizeCanvas() {
   const DPR = window.devicePixelRatio || 1;
-  canvas.style.width = WIDTH + "px";
-  canvas.style.height = HEIGHT + "px";
+  canvas.style.width = WIDTH + 'px';
+  canvas.style.height = HEIGHT + 'px';
   canvas.width = Math.floor(WIDTH * DPR);
   canvas.height = Math.floor(HEIGHT * DPR);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
 
 resizeCanvas();
-window.addEventListener("resize", resizeCanvas);
+window.addEventListener('resize', resizeCanvas);
 
 // Mundo
 const groundY = 380;
@@ -150,7 +150,7 @@ function initBackground() {
         x: i * (WIDTH / (count - 1)) + Math.random() * 200 - 100,
         w: width + Math.random() * 70,
         h: baseHeight + Math.random() * 50,
-        parallax: parallaxFactor,
+        parallax: parallaxFactor
       });
     }
     volcanoes.push(layerVolcanoes);
@@ -193,13 +193,13 @@ function lerpColorObjects(a, b, t) {
 }
 
 function initPalettes() {
-  parsedPalettes = palettes.map((p) => ({
+  parsedPalettes = palettes.map(p => ({
     skyTop: parseColor(p.skyTop),
     skyBottom: parseColor(p.skyBottom),
     ground: parseColor(p.ground),
     fissure: parseColor(p.fissure),
     particle: parseColor(p.particle),
-    volcano: parseColor(p.volcano),
+    volcano: parseColor(p.volcano)
   }));
 }
 
@@ -270,9 +270,7 @@ function createObstacle() {
 }
 
 function rectsOverlap(a, b) {
-  return (
-    a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
-  );
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
 // ❤️ Dibuja corazones
@@ -518,15 +516,15 @@ function draw() {
   }
 
   if (!running) {
-    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
-    ctx.fillStyle = "white";
-    ctx.font = "28px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("Game Over", WIDTH / 2, HEIGHT / 2 - 10);
-    ctx.font = "16px Arial";
-    ctx.fillText("Press R or Click to restart", WIDTH / 2, HEIGHT / 2 + 18);
-    ctx.textAlign = "start";
+    ctx.fillStyle = 'white';
+    ctx.font = '28px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Game Over', WIDTH / 2, HEIGHT / 2 - 10);
+    ctx.font = '16px Arial';
+    ctx.fillText('Press R or Click to restart', WIDTH / 2, HEIGHT / 2 + 18);
+    ctx.textAlign = 'start';
   }
 }
 
