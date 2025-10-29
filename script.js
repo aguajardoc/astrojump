@@ -80,219 +80,13 @@ player.sprite.src = "assets/personaje/astronaut.png";
 // Obstáculos
 let obstacles = [];
 let spawnTimer = 0;
-const spawnInterval = 90;
+// spawn interval randomized to support variable spacing (frames)
+const minSpawnInterval = 45;
+const maxSpawnInterval = 140;
+let spawnInterval = Math.floor((minSpawnInterval + maxSpawnInterval) / 2); // initial value
 
-// ### 🌋 VOLCANIC BACKGROUND ELEMENTS ###
-const MAX_PARTICLES = 150;
-let particles = [];
-let currentAestheticIndex = 0;
-let nextAestheticIndex = 0;
-let isTransitioning = false;
-let transitionProgress = 0;
-const TRANSITION_DURATION_MS = 3000;
-let transitionStartTime = 0;
-let lastScoreMilestone = 0;
-
-// Paletas de color
-const palettes = [
-  {
-    // 0: "Smoky Night"
-    skyTop: "#0a0111",
-    skyBottom: "#2a0845",
-    ground: "#1a1a1a",
-    fissure: "#ff4000",
-    particle: "rgba(200, 180, 180, 0.4)",
-    volcano: "#1f0322",
-  },
-  {
-    // 1: "Eruption Inferno"
-    skyTop: "#4d0000",
-    skyBottom: "#b30000",
-    ground: "#2b0f00",
-    fissure: "#ffff00",
-    particle: "rgba(50, 50, 50, 0.6)",
-    volcano: "#3d0000",
-  },
-  {
-    // 2: "Toxic Haze"
-    skyTop: "#2b3a1a",
-    skyBottom: "#576d3a",
-    ground: "#2f2f2f",
-    fissure: "#00ff00",
-    particle: "rgba(200, 255, 200, 0.3)",
-    volcano: "#1a2012",
-  },
-  {
-    // 3: "Nebula Night"
-    skyTop: "#0f0f2b",
-    skyBottom: "#3c1a4b",
-    ground: "#0b0c10",
-    fissure: "#00f2ff",
-    particle: "rgba(220, 220, 255, 0.4)",
-    volcano: "#07071a",
-  },
-  { skyTop: '#0a0111', skyBottom: '#2a0845', ground: '#1a1a1a', fissure: '#ff4000', particle: 'rgba(200,180,180,0.4)', volcano: '#1f0322' },
-  { skyTop: '#4d0000', skyBottom: '#b30000', ground: '#2b0f00', fissure: '#ffff00', particle: 'rgba(50,50,50,0.6)', volcano: '#3d0000' },
-  { skyTop: '#2b3a1a', skyBottom: '#576d3a', ground: '#2f2f2f', fissure: '#00ff00', particle: 'rgba(200,255,200,0.3)', volcano: '#1a2012' },
-  { skyTop: '#0f0f2b', skyBottom: '#3c1a4b', ground: '#0b0c10', fissure: '#00f2ff', particle: 'rgba(220,220,255,0.4)', volcano: '#07071a' }
-];
-
-let parsedPalettes = [];
-let volcanoes = [];
-const VOLCANO_LAYERS = 3;
-
-// Inicializa fondo y partículas
-function initBackground() {
-  particles = [];
-  for (let i = 0; i < MAX_PARTICLES; i++) {
-    particles.push({
-      x: Math.random() * WIDTH,
-      y: Math.random() * HEIGHT,
-      speed: 0.5 + Math.random() * 1.5,
-      drift: -0.3 + Math.random() * 0.6,
-      size: 1 + Math.random() * 2.5
-    });
-  }
-
-  volcanoes = [];
-  for (let layer = 0; layer < VOLCANO_LAYERS; layer++) {
-    const layerVolcanoes = [];
-    const count = 5 - layer;
-    const parallaxFactor = 0.1 + (layer / VOLCANO_LAYERS) * 0.4;
-    const baseHeight = 40 + layer * 30;
-    const width = 200 + layer * 80;
-
-    for (let i = 0; i < count; i++) {
-      layerVolcanoes.push({
-        // Spread them out across a wider-than-screen area to avoid pop-in
-        x: i * (WIDTH / (count - 1)) + Math.random() * 200 - 100,
-        w: width + Math.random() * 70,
-        h: baseHeight + Math.random() * 50,
-        parallax: parallaxFactor,
-      });
-    }
-    volcanoes.push(layerVolcanoes);
-  }
-}
-
-// ### 🎨 COLOR HELPERS ###
-function lerp(a, b, t) {
-  return a + (b - a) * Math.max(0, Math.min(1, t));
-}
-
-function parseColor(colorStr) {
-  if (colorStr.startsWith("rgba")) {
-    const parts = colorStr.match(/[\d.]+/g);
-    return {
-      r: parseFloat(parts[0]),
-      g: parseFloat(parts[1]),
-      b: parseFloat(parts[2]),
-      a: parseFloat(parts[3]),
-    };
-  }
-  if (colorStr.startsWith("#")) {
-    let hex = colorStr.slice(1);
-    if (hex.length === 3)
-      hex = hex
-        .split("")
-        .map((c) => c + c)
-        .join("");
-    const val = parseInt(hex, 16);
-    return {
-      r: (val >> 16) & 255,
-      g: (val >> 8) & 255,
-      b: val & 255,
-      a: 1,
-    };
-  }
-  // Fallback for unhandled
-  return { r: 0, g: 0, b: 0, a: 1 };
-}
-
-/** Formats an {r, g, b, a} object back into an "rgba(r,g,b,a)" string */
-function rgbaToString(colorObj) {
-  return `rgba(${Math.round(colorObj.r)}, ${Math.round(
-    colorObj.g
-  )}, ${Math.round(colorObj.b)}, ${colorObj.a})`;
-}
-
-/** Lerps between two {r, g, b, a} color objects */
-function lerpColorObjects(colorA, colorB, t) {
-  return {
-    r: lerp(colorA.r, colorB.r, t),
-    g: lerp(colorA.g, colorB.g, t),
-    b: lerp(colorA.b, colorB.b, t),
-    a: lerp(colorA.a, colorB.a, t),
-  };
-  if (colorStr.startsWith('rgba')) {
-    const p = colorStr.match(/[\d.]+/g);
-    return { r: +p[0], g: +p[1], b: +p[2], a: +p[3] };
-  }
-  let hex = colorStr.slice(1);
-  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
-  const val = parseInt(hex, 16);
-  return { r: (val >> 16) & 255, g: (val >> 8) & 255, b: val & 255, a: 1 };
-}
-
-function rgbaToString(c) {
-  return `rgba(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)}, ${c.a})`;
-}
-
-function lerpColorObjects(a, b, t) {
-  return { r: lerp(a.r, b.r, t), g: lerp(a.g, b.g, t), b: lerp(a.b, b.b, t), a: lerp(a.a, b.a, t) };
-}
-
-function initPalettes() {
-  parsedPalettes = palettes.map((p) => ({
-    skyTop: parseColor(p.skyTop),
-    skyBottom: parseColor(p.skyBottom),
-    ground: parseColor(p.ground),
-    fissure: parseColor(p.fissure),
-    particle: parseColor(p.particle),
-    volcano: parseColor(p.volcano),
-  }));
-}
-
-function updateBackground() {
-  if (!running) return;
-
-  // Update particles (ash)
-  particles.forEach((p) => {
-    p.y += p.speed; // Fall down
-    p.x += p.drift; // Drift sideways
-
-    // Wrap particles around the screen
-    if (p.y > HEIGHT + 10) {
-      p.y = -10; // Reset to top
-      p.x = Math.random() * WIDTH;
-    }
-    if (p.x < -10) p.x = WIDTH + 10;
-    if (p.x > WIDTH + 10) p.x = -10;
-  });
-
-  // Update volcano positions (parallax scroll)
-  volcanoes.forEach((layer) => {
-    layer.forEach((v) => {
-      // Move based on gameSpeed and its parallax factor
-      v.x -= gameSpeed * v.parallax;
-
-      // Wrap volcanoes when they scroll off-screen
-      if (v.x + v.w < -150) {
-        v.x = WIDTH + 150 + Math.random() * 100; // Reset to the right
-      }
-  particles.forEach(p => {
-    p.y += p.speed;
-    p.x += p.drift;
-    if (p.y > HEIGHT + 10) { p.y = -10; p.x = Math.random() * WIDTH; }
-    if (p.x < -10) p.x = WIDTH + 10;
-    if (p.x > WIDTH + 10) p.x = -10;
-  });
-  volcanoes.forEach(layer => {
-    layer.forEach(v => {
-      v.x -= gameSpeed * v.parallax;
-      if (v.x + v.w < -150) v.x = WIDTH + 150 + Math.random() * 100;
-    });
-  });
+function randomSpawnInterval() {
+  return Math.floor(Math.random() * (maxSpawnInterval - minSpawnInterval + 1)) + minSpawnInterval;
 }
 
 // Input
@@ -340,10 +134,20 @@ canvas.addEventListener(
 
 // Genera un obstáculo (bloque o pinchos)
 function createObstacle() {
-  const type = Math.random() < 0.25 ? "spike" : "block";
-  const width = type === "block" ? 40 + Math.floor(Math.random() * 40) : 36;
-  const height = type === "block" ? 30 + Math.floor(Math.random() * 80) : 36;
-  const y = type === "block" ? groundY - height : groundY - height;
+  const type = Math.random() < 0.25 ? 'spike' : 'block';
+  const width = type === 'block' ? 40 + Math.floor(Math.random() * 40) : 36;
+  let height = type === 'block' ? 30 + Math.floor(Math.random() * 80) : 36;
+
+  // If you want blocks to be taller for a double-jump branch, enable this flag.
+  // Currently we only double blocks (not spikes) to keep spike behavior predictable.
+  const doubleBlockHeight = true;
+  if (type === 'block' && doubleBlockHeight) {
+    // Double the block height but cap so obstacles never exceed the playable area.
+    const maxAllowed = Math.max(20, groundY - 20);
+    height = Math.min(height * 2, maxAllowed);
+  }
+
+  const y = groundY - height;
 
   obstacles.push({
     x: WIDTH + 60,
@@ -440,6 +244,8 @@ function update() {
   if (spawnTimer > spawnInterval) {
     spawnTimer = 0;
     createObstacle();
+    // pick the next random spawn interval
+    spawnInterval = randomSpawnInterval();
   }
 
   for (let i = obstacles.length - 1; i >= 0; i--) {
