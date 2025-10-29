@@ -37,8 +37,11 @@ const player = {
   y: groundY - 42,
   prevY: groundY - 42,
   vy: 0,
-  gravity: 0.9,
+  gravity: 0.75,
   jumpPower: -15,
+  doubleJumpPower: -13, // fuerza del doble salto (ajustar)
+  maxJump: 2, // número máximo de saltos (1 = simple, 2 = doble)
+  jumpsUsed: 0, //contador de saltos usados
   onGround: true,
   color: '#00d1ff'
 };
@@ -245,9 +248,20 @@ function updateBackground() {
 
 // Input
 function jump() {
-  if (player.onGround && running) {
+    if(!running) return;
+  // Si esta en tierra, primer salto
+  if (player.onGround) {
     player.vy = player.jumpPower;
     player.onGround = false;
+    player.jumpsUsed = 1;
+    //console.log("Salto!");
+    return;
+  }
+
+  if(player.jumpsUsed < player.maxJump){
+    player.vy = player.doubleJumpPower;
+    player.jumpsUsed++;
+    //console.log("Doble salto!");
   }
 }
 
@@ -328,6 +342,7 @@ function update() {
     player.y = groundY - player.size;
     player.vy = 0;
     player.onGround = true;
+    player.jumpsUsed = 0;
   }
 
   // Spawning
@@ -517,6 +532,7 @@ function restart() {
   player.y = groundY - player.size;
   player.vy = 0;
   player.onGround = true;
+  player.jumpsUsed = 0;
   gameSpeed = 5;
   initBackground();
 
