@@ -37,8 +37,8 @@ const player = {
   y: groundY - 42,
   vy: 0,
   gravity: 0.75,
-  jumpPower: -18,
-  doubleJumpPower: -16, // fuerza del doble salto (ajustar)
+  jumpPower: -15,
+  doubleJumpPower: -13, // fuerza del doble salto (ajustar)
   maxJump: 2, // número máximo de saltos (1 = simple, 2 = doble)
   jumpsUsed: 0, //contador de saltos usados
   onGround: true,
