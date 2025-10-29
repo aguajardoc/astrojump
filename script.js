@@ -30,7 +30,9 @@ let score = 0;
 let highScore = 0;
 let running = true;
 let lives = 3;
+let lastLives = 3;
 let hitFlash = 0;
+let lifeFlash = 0;
 
 // Jugador
 const player = {
@@ -41,9 +43,9 @@ const player = {
   vy: 0,
   gravity: 0.75,
   jumpPower: -15,
-  doubleJumpPower: -13, // fuerza del doble salto (ajustar)
-  maxJump: 2, // número máximo de saltos (1 = simple, 2 = doble)
-  jumpsUsed: 0, //contador de saltos usados
+  doubleJumpPower: -13,
+  maxJump: 2,
+  jumpsUsed: 0,
   onGround: true,
   color: '#00d1ff'
 };
@@ -54,90 +56,51 @@ let spawnTimer = 0;
 const spawnInterval = 90;
 
 // ### 🌋 VOLCANIC BACKGROUND ELEMENTS ###
-const MAX_PARTICLES = 150; // How many ash particles
-let particles = []; // Array to hold particle objects
-// ### 🎨 AESTHETIC TRANSITION VARIABLES ###
+const MAX_PARTICLES = 150;
+let particles = [];
 let currentAestheticIndex = 0;
-let nextAestheticIndex = 0; // The palette we are transitioning TO
+let nextAestheticIndex = 0;
 let isTransitioning = false;
-let transitionProgress = 0; // 0.0 to 1.0
-const TRANSITION_DURATION_MS = 3000; // 3 seconds
+let transitionProgress = 0;
+const TRANSITION_DURATION_MS = 3000;
 let transitionStartTime = 0;
 let lastScoreMilestone = 0;
 
-// Define palettes in an array for easier access
+// Paletas de color
 const palettes = [
-  { // 0: "Smoky Night"
-    skyTop: '#0a0111',
-    skyBottom: '#2a0845',
-    ground: '#1a1a1a',
-    fissure: '#ff4000',
-    particle: 'rgba(200, 180, 180, 0.4)',
-    volcano: '#1f0322'
-  },
-  { // 1: "Eruption Inferno"
-    skyTop: '#4d0000',
-    skyBottom: '#b30000',
-    ground: '#2b0f00',
-    fissure: '#ffff00',
-    particle: 'rgba(50, 50, 50, 0.6)',
-    volcano: '#3d0000'
-  },
-  { // 2: "Toxic Haze"
-    skyTop: '#2b3a1a',
-    skyBottom: '#576d3a',
-    ground: '#2f2f2f',
-    fissure: '#00ff00',
-    particle: 'rgba(200, 255, 200, 0.3)',
-    volcano: '#1a2012'
-  },
-  { // 3: "Nebula Night"
-    skyTop: '#0f0f2b',
-    skyBottom: '#3c1a4b',
-    ground: '#0b0c10',
-    fissure: '#00f2ff',
-    particle: 'rgba(220, 220, 255, 0.4)',
-    volcano: '#07071a'
-  }
+  { skyTop: '#0a0111', skyBottom: '#2a0845', ground: '#1a1a1a', fissure: '#ff4000', particle: 'rgba(200,180,180,0.4)', volcano: '#1f0322' },
+  { skyTop: '#4d0000', skyBottom: '#b30000', ground: '#2b0f00', fissure: '#ffff00', particle: 'rgba(50,50,50,0.6)', volcano: '#3d0000' },
+  { skyTop: '#2b3a1a', skyBottom: '#576d3a', ground: '#2f2f2f', fissure: '#00ff00', particle: 'rgba(200,255,200,0.3)', volcano: '#1a2012' },
+  { skyTop: '#0f0f2b', skyBottom: '#3c1a4b', ground: '#0b0c10', fissure: '#00f2ff', particle: 'rgba(220,220,255,0.4)', volcano: '#07071a' }
 ];
 
-// This will hold the parsed {r,g,b,a} objects for smooth lerping
 let parsedPalettes = [];
-// ### END AESTHETIC VARIABLES ###
-let volcanoes = []; // Array to hold distant volcano objects
-const VOLCANO_LAYERS = 3; // Number of parallax layers for volcanoes
-// ### END BACKGROUND ELEMENTS ###
+let volcanoes = [];
+const VOLCANO_LAYERS = 3;
 
-/**
- * Creates or resets all background elements (particles and volcanoes).
- * Called at the start and on restart.
- */
+// Inicializa fondo y partículas
 function initBackground() {
-  // Create ash particles
   particles = [];
   for (let i = 0; i < MAX_PARTICLES; i++) {
     particles.push({
       x: Math.random() * WIDTH,
       y: Math.random() * HEIGHT,
-      speed: 0.5 + Math.random() * 1.5, // Vertical fall speed
-      drift: -0.3 + Math.random() * 0.6, // Horizontal drift
+      speed: 0.5 + Math.random() * 1.5,
+      drift: -0.3 + Math.random() * 0.6,
       size: 1 + Math.random() * 2.5
     });
   }
 
-  // Create distant volcanoes in parallax layers
   volcanoes = [];
   for (let layer = 0; layer < VOLCANO_LAYERS; layer++) {
     const layerVolcanoes = [];
-    // Closer layers have fewer, larger volcanoes
     const count = 5 - layer;
-    const parallaxFactor = 0.1 + (layer / VOLCANO_LAYERS) * 0.4; // 0.1 (far) to 0.5 (near)
+    const parallaxFactor = 0.1 + (layer / VOLCANO_LAYERS) * 0.4;
     const baseHeight = 40 + layer * 30;
     const width = 200 + layer * 80;
 
     for (let i = 0; i < count; i++) {
       layerVolcanoes.push({
-        // Spread them out across a wider-than-screen area to avoid pop-in
         x: (i * (WIDTH / (count - 1))) + Math.random() * 200 - 100,
         w: width + Math.random() * 70,
         h: baseHeight + Math.random() * 50,
@@ -148,60 +111,30 @@ function initBackground() {
   }
 }
 
-// ### 🎨 COLOR INTERPOLATION HELPERS ###
-
-/** Linear interpolation (lerp) for a single number */
+// ### 🎨 COLOR HELPERS ###
 function lerp(a, b, t) {
-  // Clamp t to be between 0 and 1
-  const progress = Math.max(0, Math.min(1, t));
-  return a + (b - a) * progress;
+  return a + (b - a) * Math.max(0, Math.min(1, t));
 }
 
-/** Parses a color string (hex or rgba) into an {r, g, b, a} object */
 function parseColor(colorStr) {
   if (colorStr.startsWith('rgba')) {
-    const parts = colorStr.match(/[\d.]+/g);
-    return {
-      r: parseFloat(parts[0]),
-      g: parseFloat(parts[1]),
-      b: parseFloat(parts[2]),
-      a: parseFloat(parts[3])
-    };
+    const p = colorStr.match(/[\d.]+/g);
+    return { r: +p[0], g: +p[1], b: +p[2], a: +p[3] };
   }
-  if (colorStr.startsWith('#')) {
-    let hex = colorStr.slice(1);
-    if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
-    const val = parseInt(hex, 16);
-    return {
-      r: (val >> 16) & 255,
-      g: (val >> 8) & 255,
-      b: val & 255,
-      a: 1
-    };
-  }
-  // Fallback for unhandled
-  return { r: 0, g: 0, b: 0, a: 1 };
+  let hex = colorStr.slice(1);
+  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+  const val = parseInt(hex, 16);
+  return { r: (val >> 16) & 255, g: (val >> 8) & 255, b: val & 255, a: 1 };
 }
 
-/** Formats an {r, g, b, a} object back into an "rgba(r,g,b,a)" string */
-function rgbaToString(colorObj) {
-  return `rgba(${Math.round(colorObj.r)}, ${Math.round(colorObj.g)}, ${Math.round(colorObj.b)}, ${colorObj.a})`;
+function rgbaToString(c) {
+  return `rgba(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)}, ${c.a})`;
 }
 
-/** Lerps between two {r, g, b, a} color objects */
-function lerpColorObjects(colorA, colorB, t) {
-  return {
-    r: lerp(colorA.r, colorB.r, t),
-    g: lerp(colorA.g, colorB.g, t),
-    b: lerp(colorA.b, colorB.b, t),
-    a: lerp(colorA.a, colorB.a, t)
-  };
+function lerpColorObjects(a, b, t) {
+  return { r: lerp(a.r, b.r, t), g: lerp(a.g, b.g, t), b: lerp(a.b, b.b, t), a: lerp(a.a, b.a, t) };
 }
 
-/**
- * Parses the string-based palettes into {r,g,b,a} objects
- * for faster processing in the draw loop.
- */
 function initPalettes() {
   parsedPalettes = palettes.map(p => ({
     skyTop: parseColor(p.skyTop),
@@ -212,151 +145,100 @@ function initPalettes() {
     volcano: parseColor(p.volcano)
   }));
 }
-// ### END COLOR HELPERS ###
 
-/**
- * Updates positions of background elements every frame.
- */
 function updateBackground() {
   if (!running) return;
-
-  // Update particles (ash)
   particles.forEach(p => {
-    p.y += p.speed; // Fall down
-    p.x += p.drift; // Drift sideways
-    
-    // Wrap particles around the screen
-    if (p.y > HEIGHT + 10) {
-      p.y = -10; // Reset to top
-      p.x = Math.random() * WIDTH;
-    }
+    p.y += p.speed;
+    p.x += p.drift;
+    if (p.y > HEIGHT + 10) { p.y = -10; p.x = Math.random() * WIDTH; }
     if (p.x < -10) p.x = WIDTH + 10;
     if (p.x > WIDTH + 10) p.x = -10;
   });
-
-  // Update volcano positions (parallax scroll)
   volcanoes.forEach(layer => {
     layer.forEach(v => {
-      // Move based on gameSpeed and its parallax factor
       v.x -= gameSpeed * v.parallax;
-      
-      // Wrap volcanoes when they scroll off-screen
-      if (v.x + v.w < -150) {
-        v.x = WIDTH + 150 + Math.random() * 100; // Reset to the right
-      }
+      if (v.x + v.w < -150) v.x = WIDTH + 150 + Math.random() * 100;
     });
   });
 }
 
 // Input
 function jump() {
-    if(!running) return;
-  // Si esta en tierra, primer salto
+  if (!running) return;
   if (player.onGround) {
     player.vy = player.jumpPower;
     player.onGround = false;
     player.jumpsUsed = 1;
-    //console.log("Salto!");
     return;
   }
-
-  if(player.jumpsUsed < player.maxJump){
+  if (player.jumpsUsed < player.maxJump) {
     player.vy = player.doubleJumpPower;
     player.jumpsUsed++;
-    //console.log("Doble salto!");
   }
 }
 
-window.addEventListener('keydown', (e) => {
+window.addEventListener('keydown', e => {
   if (e.code === 'Space' || e.code === 'ArrowUp') {
     e.preventDefault();
     jump();
   }
-  if (e.key === 'r' || e.key === 'R') {
-    restart();
-  }
+  if (e.key === 'r' || e.key === 'R') restart();
 });
-
-canvas.addEventListener('mousedown', () => jump());
-canvas.addEventListener('touchstart', (e) => { e.preventDefault(); jump(); }, {passive:false});
+canvas.addEventListener('mousedown', jump);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); jump(); }, { passive: false });
 
 function createObstacle() {
   const type = Math.random() < 0.25 ? 'spike' : 'block';
-  const width = type === 'block' ? 40 + Math.floor(Math.random() * 40) : 36;
-  const height = type === 'block' ? 30 + Math.floor(Math.random() * 80) : 36;
+  const width = type === 'block' ? 40 + Math.random() * 40 : 36;
+  const height = type === 'block' ? 30 + Math.random() * 80 : 36;
   const y = groundY - height;
-
-  obstacles.push({
-    x: WIDTH + 60,
-    y,
-    w: width,
-    h: height,
-    type
-  });
+  obstacles.push({ x: WIDTH + 60, y, w: width, h: height, type });
 }
 
-// Colisión simple
 function rectsOverlap(a, b) {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
-// ❤️ Dibujar corazón
+// ❤️ Dibuja corazones
 function drawHeart(x, y, size, color) {
   ctx.fillStyle = color;
   ctx.beginPath();
-  const topCurveHeight = size * 0.3;
-  ctx.moveTo(x, y + topCurveHeight);
-  ctx.bezierCurveTo(x, y, x - size / 2, y, x - size / 2, y + topCurveHeight);
-  ctx.bezierCurveTo(
-    x - size / 2, y + (size + topCurveHeight) / 2,
-    x, y + (size + topCurveHeight) / 1.2,
-    x, y + size
-  );
-  ctx.bezierCurveTo(
-    x, y + (size + topCurveHeight) / 1.2,
-    x + size / 2, y + (size + topCurveHeight) / 2,
-    x + size / 2, y + topCurveHeight
-  );
-  ctx.bezierCurveTo(x + size / 2, y, x, y, x, y + topCurveHeight);
+  const top = size * 0.3;
+  ctx.moveTo(x, y + top);
+  ctx.bezierCurveTo(x, y, x - size / 2, y, x - size / 2, y + top);
+  ctx.bezierCurveTo(x - size / 2, y + (size + top) / 2, x, y + (size + top) / 1.2, x, y + size);
+  ctx.bezierCurveTo(x, y + (size + top) / 1.2, x + size / 2, y + (size + top) / 2, x + size / 2, y + top);
+  ctx.bezierCurveTo(x + size / 2, y, x, y, x, y + top);
   ctx.closePath();
   ctx.fill();
 }
 
+// 🧱 Actualización del juego
 function update() {
-    updateBackground();
+  updateBackground();
   if (!running) return;
 
-  // ### 🎨 AESTHETIC TRANSITION LOGIC ###
   const now = performance.now();
-  
-  // 1. Check if we are currently transitioning
   if (isTransitioning) {
     const elapsed = now - transitionStartTime;
-    transitionProgress = Math.min(elapsed / TRANSITION_DURATION_MS, 1.0);
-
-    // 2. Check if the transition has finished
-    if (transitionProgress >= 1.0) {
+    transitionProgress = Math.min(elapsed / TRANSITION_DURATION_MS, 1);
+    if (transitionProgress >= 1) {
       isTransitioning = false;
-      currentAestheticIndex = nextAestheticIndex; // Lock in the new palette
-      transitionProgress = 0; // Reset progress
+      currentAestheticIndex = nextAestheticIndex;
+      transitionProgress = 0;
     }
   }
 
-  // 3. Check if a *new* transition should start
-  const currentMilestone = Math.floor(score / 100); // Trigger every x points
-  if (currentMilestone > lastScoreMilestone && !isTransitioning) {
+  const milestone = Math.floor(score / 100);
+  if (milestone > lastScoreMilestone && !isTransitioning) {
     isTransitioning = true;
     transitionStartTime = now;
-    lastScoreMilestone = currentMilestone;
-    // Set the next palette, wrapping around if we're at the end
+    lastScoreMilestone = milestone;
     nextAestheticIndex = (currentAestheticIndex + 1) % palettes.length;
-    transitionProgress = 0; // Ensure progress starts from 0
   }
-  // ### END AESTHETIC LOGIC ###
-  // track previous vertical position to detect landing-from-above
-  player.prevY = player.y;
 
-  // Actualiza jugador
+  player.prevY = player.y;
   player.vy += player.gravity;
   player.y += player.vy;
   if (player.y + player.size >= groundY) {
@@ -366,53 +248,33 @@ function update() {
     player.jumpsUsed = 0;
   }
 
-  // Spawning
   spawnTimer++;
   if (spawnTimer > spawnInterval) {
     spawnTimer = 0;
     createObstacle();
   }
 
-  // Movimiento y colisión de obstáculos
   for (let i = obstacles.length - 1; i >= 0; i--) {
     const ob = obstacles[i];
     ob.x -= gameSpeed;
-
-    // Eliminar si sale de la pantalla
     if (ob.x + ob.w < -50) {
       obstacles.splice(i, 1);
       continue;
     }
 
-    // Checar colisión
     const playerBox = { x: player.x, y: player.y, w: player.size, h: player.size };
-    const obBox = { x: ob.x, y: ob.y, w: ob.w, h: ob.h };
-    if (rectsOverlap(playerBox, obBox)) {
-      if (ob.type === 'spike') {
-        // contact with spikes is always lethal
-        gameOver();
-      } else if (ob.type === 'block') {
-        // Determine if the player is landing on top of the block.
-        // Use previous vertical position to confirm the player came from above.
-        const prevBottom = player.prevY + player.size;
-        const currBottom = player.y + player.size;
-        const obTop = ob.y;
+    if (rectsOverlap(playerBox, ob)) {
+      const prevBottom = player.prevY + player.size;
+      const currBottom = player.y + player.size;
+      const obTop = ob.y;
 
-        // If the player's previous bottom was at or above the block top (<=) and
-        // now the bottom is at or below the block top (>=), and the player is moving down,
-        // treat this as a safe landing on top of the block.
-        if (prevBottom <= obTop && currBottom >= obTop && player.vy >= 0) {
-          // Snap the player to the top of the block and reset vertical motion
-          player.y = obTop - player.size;
-          player.vy = 0;
-          player.onGround = true;
-        } else {
-          // Any other overlap (side, bottom, or hitting while moving up) is lethal
-          gameOver();
-        }
+      const landed = (prevBottom <= obTop && currBottom >= obTop && player.vy >= 0);
+      if (ob.type === 'block' && landed) {
+        player.y = obTop - player.size;
+        player.vy = 0;
+        player.onGround = true;
       } else {
-        // fallback: lethal
-        gameOver();
+        loseLife(i); // 🔥 solo elimina el obstáculo que causa daño
       }
     }
   }
@@ -423,46 +285,66 @@ function update() {
   }
 
   if (hitFlash > 0) hitFlash--;
+  if (lifeFlash > 0) lifeFlash--;
 }
 
+// 💔 Pierde una vida (solo elimina ese obstáculo)
+function loseLife(index) {
+  lives--;
+  hitFlash = 10;
+  lifeFlash = 15;
+  obstacles.splice(index, 1); // solo ese obstáculo
+
+  if (lives <= 0) {
+    running = false;
+    if (score > highScore) highScore = Math.floor(score);
+  }
+}
+
+// 🔄 Reiniciar
+function restart() {
+  running = true;
+  score = 0;
+  lives = 3;
+  lastLives = 3;
+  obstacles = [];
+  spawnTimer = 0;
+  player.y = groundY - player.size;
+  player.vy = 0;
+  player.onGround = true;
+  player.jumpsUsed = 0;
+  gameSpeed = 5;
+  initBackground();
+  currentAestheticIndex = 0;
+  nextAestheticIndex = 0;
+  isTransitioning = false;
+  transitionProgress = 0;
+  lastScoreMilestone = 0;
+}
+
+canvas.addEventListener('click', () => { if (!running) restart(); });
+
+// 🎨 Dibujar todo
 function draw() {
-  // ### 🌋 VOLCANIC BACKGROUND DRAWING ###
+  const pa = parsedPalettes[currentAestheticIndex];
+  const pb = parsedPalettes[nextAestheticIndex];
+  const t = transitionProgress;
+  const skyTop = lerpColorObjects(pa.skyTop, pb.skyTop, t);
+  const skyBottom = lerpColorObjects(pa.skyBottom, pb.skyBottom, t);
+  const ground = lerpColorObjects(pa.ground, pb.ground, t);
+  const particle = lerpColorObjects(pa.particle, pb.particle, t);
+  const volcano = lerpColorObjects(pa.volcano, pb.volcano, t);
 
-  // 1. Get the 'from' and 'to' palettes
-  const paletteA = parsedPalettes[currentAestheticIndex];
-  const paletteB = parsedPalettes[nextAestheticIndex];
-  const t = transitionProgress; // Current blend amount (0.0 to 1.0)
-
-  // 2. Interpolate all colors
-  const skyTop = lerpColorObjects(paletteA.skyTop, paletteB.skyTop, t);
-  const skyBottom = lerpColorObjects(paletteA.skyBottom, paletteB.skyBottom, t);
-  const ground = lerpColorObjects(paletteA.ground, paletteB.ground, t);
-  const fissure = lerpColorObjects(paletteA.fissure, paletteB.fissure, t);
-  const particle = lerpColorObjects(paletteA.particle, paletteB.particle, t);
-  const volcano = lerpColorObjects(paletteA.volcano, paletteB.volcano, t);
-
-  // 3. Convert interpolated {r,g,b,a} objects back to strings for drawing
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, groundY);
-  skyGrad.addColorStop(0, rgbaToString(skyTop));
-  skyGrad.addColorStop(1, rgbaToString(skyBottom));
-
-  const groundColor = rgbaToString(ground);
-  const fissureColor = rgbaToString(fissure);
-  const particleColor = rgbaToString(particle);
-  const distantVolcanoColor = rgbaToString(volcano);
-
-  // 4. Draw Sky
-  ctx.fillStyle = skyGrad;
+  const grad = ctx.createLinearGradient(0, 0, 0, groundY);
+  grad.addColorStop(0, rgbaToString(skyTop));
+  grad.addColorStop(1, rgbaToString(skyBottom));
+  ctx.fillStyle = grad;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  // 5. Draw Distant Volcanoes (Parallax) - THIS WAS MISSING
-  volcanoes.forEach((layer, index) => {
-    // Set color and alpha based on layer
-    ctx.fillStyle = distantVolcanoColor;
-    ctx.globalAlpha = 0.2 + (index / VOLCANO_LAYERS) * 0.5; // Fainter layers are further
-    
+  volcanoes.forEach((layer, i) => {
+    ctx.fillStyle = rgbaToString(volcano);
+    ctx.globalAlpha = 0.2 + (i / VOLCANO_LAYERS) * 0.5;
     layer.forEach(v => {
-      // Draw a simple triangle for the volcano silhouette
       ctx.beginPath();
       ctx.moveTo(v.x, groundY);
       ctx.lineTo(v.x + v.w / 2, groundY - v.h);
@@ -471,26 +353,13 @@ function draw() {
       ctx.fill();
     });
   });
-  ctx.globalAlpha = 1.0; // Reset alpha
+  ctx.globalAlpha = 1;
 
-  // 6. Draw Ash/Particles - THIS WAS MISSING
-  ctx.fillStyle = particleColor;
-  particles.forEach(p => {
-    ctx.fillRect(p.x, p.y, p.size, p.size);
-  });
+  ctx.fillStyle = rgbaToString(particle);
+  particles.forEach(p => ctx.fillRect(p.x, p.y, p.size, p.size));
 
-  // 7. Draw Ground
-  ctx.fillStyle = groundColor;
+  ctx.fillStyle = rgbaToString(ground);
   ctx.fillRect(0, groundY, WIDTH, HEIGHT - groundY);
-
-
-  // ### END OF BACKGROUND ###
-
-  // -- THE OLD CODE BELOW WAS REMOVED --
-  // ctx.fillStyle = '#0b2a3a';
-  // ctx.fillRect(0, groundY, WIDTH, HEIGHT - groundY);
-  // ... (and the grid lines) ...
-  // --
 
   // Jugador
   ctx.fillStyle = player.color;
@@ -498,16 +367,15 @@ function draw() {
 
   // Obstáculos
   obstacles.forEach(ob => {
+    ctx.fillStyle = ob.type === 'block' ? '#ff6b6b' : '#ffd166';
     if (ob.type === 'block') {
-      ctx.fillStyle = '#ff6b6b';
       ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
       ctx.fillStyle = 'rgba(255,255,255,0.06)';
       ctx.fillRect(ob.x, ob.y, ob.w, 6);
-    } else if (ob.type === 'spike') {
-      ctx.fillStyle = '#ffd166';
-      const spikeCount = Math.max(2, Math.floor(ob.w / 12));
-      const step = ob.w / spikeCount;
-      for (let i = 0; i < spikeCount; i++) {
+    } else {
+      const spikes = Math.max(2, Math.floor(ob.w / 12));
+      const step = ob.w / spikes;
+      for (let i = 0; i < spikes; i++) {
         const sx = ob.x + i * step;
         ctx.beginPath();
         ctx.moveTo(sx, ob.y + ob.h);
@@ -519,7 +387,7 @@ function draw() {
     }
   });
 
-  // HUD: Score y vidas
+  // HUD
   ctx.fillStyle = 'white';
   ctx.font = '18px Arial';
   ctx.fillText('Score: ' + Math.floor(score), 12, 28);
@@ -527,17 +395,18 @@ function draw() {
   ctx.fillText('High: ' + Math.floor(highScore), 12, 50);
 
   const heartSize = 16;
-  for (let i = 0; i < lives; i++) {
-    drawHeart(20 + i * (heartSize + 8), 70, heartSize, '#ff3366');
+  for (let i = 0; i < 3; i++) {
+    let color = '#ff3366';
+    if (i >= lives) color = 'rgba(255,255,255,0.2)';
+    if (lifeFlash > 0 && i === lives) color = '#ff0000';
+    drawHeart(20 + i * (heartSize + 8), 70, heartSize, color);
   }
 
-  // Flash rojo
   if (hitFlash > 0) {
     ctx.fillStyle = `rgba(255,0,0,${hitFlash / 10})`;
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
   }
 
-  // Game over overlay
   if (!running) {
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -551,38 +420,7 @@ function draw() {
   }
 }
 
-function loseLife() {
-  lives--;
-  hitFlash = 10;
-
-  if (lives <= 0) {
-    running = false;
-    if (score > highScore) highScore = Math.floor(score);
-  }
-}
-
-function restart() {
-  running = true;
-  score = 0;
-  obstacles = [];
-  spawnTimer = 0;
-  player.y = groundY - player.size;
-  player.vy = 0;
-  player.onGround = true;
-  player.jumpsUsed = 0;
-  gameSpeed = 5;
-  initBackground();
-
-  // Reset aesthetic state
-  currentAestheticIndex = 0;
-  nextAestheticIndex = 0;
-  isTransitioning = false;
-  transitionProgress = 0;
-  lastScoreMilestone = 0;
-}
-
-canvas.addEventListener('click', () => { if (!running) restart(); });
-
+// 🌀 Loop principal
 function loop() {
   update();
   draw();
