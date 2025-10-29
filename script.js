@@ -7,7 +7,7 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Tamaño base (estático visual) y ajuste para devicePixelRatio
+// Tamaño base y ajuste por devicePixelRatio
 const WIDTH = 800;
 const HEIGHT = 450;
 
@@ -25,12 +25,14 @@ window.addEventListener('resize', resizeCanvas);
 
 // Mundo
 const groundY = 380;
-let gameSpeed = 5; // velocidad de desplazamiento de los obstáculos
+let gameSpeed = 5;
 let score = 0;
 let highScore = 0;
 let running = true;
+let lives = 3;
+let hitFlash = 0;
 
-// Jugador (cuadrado)
+// Jugador
 const player = {
   x: 120,
   size: 42,
@@ -45,7 +47,7 @@ const player = {
 // Obstáculos
 let obstacles = [];
 let spawnTimer = 0;
-const spawnInterval = 90; // frames between spawns (aprox)
+const spawnInterval = 90;
 
 // Input
 function jump() {
@@ -68,12 +70,11 @@ window.addEventListener('keydown', (e) => {
 canvas.addEventListener('mousedown', () => jump());
 canvas.addEventListener('touchstart', (e) => { e.preventDefault(); jump(); }, {passive:false});
 
-// Genera un obstáculo (bloque o pinchos)
 function createObstacle() {
   const type = Math.random() < 0.25 ? 'spike' : 'block';
   const width = type === 'block' ? 40 + Math.floor(Math.random() * 40) : 36;
   const height = type === 'block' ? 30 + Math.floor(Math.random() * 80) : 36;
-  const y = type === 'block' ? (groundY - height) : (groundY - height);
+  const y = groundY - height;
 
   obstacles.push({
     x: WIDTH + 60,
@@ -84,19 +85,39 @@ function createObstacle() {
   });
 }
 
-// Colisión AABB simple
+// Colisión simple
 function rectsOverlap(a, b) {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+// ❤️ Dibujar corazón
+function drawHeart(x, y, size, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  const topCurveHeight = size * 0.3;
+  ctx.moveTo(x, y + topCurveHeight);
+  ctx.bezierCurveTo(x, y, x - size / 2, y, x - size / 2, y + topCurveHeight);
+  ctx.bezierCurveTo(
+    x - size / 2, y + (size + topCurveHeight) / 2,
+    x, y + (size + topCurveHeight) / 1.2,
+    x, y + size
+  );
+  ctx.bezierCurveTo(
+    x, y + (size + topCurveHeight) / 1.2,
+    x + size / 2, y + (size + topCurveHeight) / 2,
+    x + size / 2, y + topCurveHeight
+  );
+  ctx.bezierCurveTo(x + size / 2, y, x, y, x, y + topCurveHeight);
+  ctx.closePath();
+  ctx.fill();
 }
 
 function update() {
   if (!running) return;
 
-  // Actualiza jugador
+  // Física del jugador
   player.vy += player.gravity;
   player.y += player.vy;
-
-  // Ground collision
   if (player.y + player.size >= groundY) {
     player.y = groundY - player.size;
     player.vy = 0;
@@ -110,40 +131,45 @@ function update() {
     createObstacle();
   }
 
-  // Mover obstáculos
+  // Movimiento y colisión de obstáculos
   for (let i = obstacles.length - 1; i >= 0; i--) {
     const ob = obstacles[i];
     ob.x -= gameSpeed;
-    // Offscreen
-    if (ob.x + ob.w < -50) obstacles.splice(i, 1);
-    // Check collision (approx spikes as box for simplicity)
+
+    // Eliminar si sale de la pantalla
+    if (ob.x + ob.w < -50) {
+      obstacles.splice(i, 1);
+      continue;
+    }
+
+    // Checar colisión
     const playerBox = { x: player.x, y: player.y, w: player.size, h: player.size };
     const obBox = { x: ob.x, y: ob.y, w: ob.w, h: ob.h };
     if (rectsOverlap(playerBox, obBox)) {
-      // More accurate spike collision could be added, but this is fine for now
-      gameOver();
+      // Elimina solo este obstáculo
+      obstacles.splice(i, 1);
+      loseLife();
+      break;
     }
   }
 
-  // Increment score by distance / time
   score += 0.1 * (gameSpeed / 5);
-
-  // Slight difficulty ramp
   if (Math.floor(score) % 50 === 0 && Math.floor(score) !== 0) {
     gameSpeed = 5 + Math.floor(score / 100);
   }
+
+  if (hitFlash > 0) hitFlash--;
 }
 
 function draw() {
-  // Background
   ctx.fillStyle = '#071021';
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  // Parallax-ish horizon
+  // Suelo
   ctx.fillStyle = '#0b2a3a';
   ctx.fillRect(0, groundY, WIDTH, HEIGHT - groundY);
 
-  // Grid / lines for style
+  // Cuadrícula
   ctx.strokeStyle = 'rgba(255,255,255,0.02)';
   for (let i = 0; i < 20; i++) {
     ctx.beginPath();
@@ -152,44 +178,52 @@ function draw() {
     ctx.stroke();
   }
 
-  // Draw player (square)
+  // Jugador
   ctx.fillStyle = player.color;
   ctx.fillRect(player.x, player.y, player.size, player.size);
 
-  // Draw obstacles
+  // Obstáculos
   obstacles.forEach(ob => {
     if (ob.type === 'block') {
       ctx.fillStyle = '#ff6b6b';
       ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
-      // top highlight
       ctx.fillStyle = 'rgba(255,255,255,0.06)';
       ctx.fillRect(ob.x, ob.y, ob.w, 6);
     } else if (ob.type === 'spike') {
-      // draw spikes as triangle shapes
       ctx.fillStyle = '#ffd166';
-      const spikeW = ob.w;
-      const spikeH = ob.h;
-      const spikeCount = Math.max(2, Math.floor(spikeW / 12));
-      const step = spikeW / spikeCount;
+      const spikeCount = Math.max(2, Math.floor(ob.w / 12));
+      const step = ob.w / spikeCount;
       for (let i = 0; i < spikeCount; i++) {
         const sx = ob.x + i * step;
         ctx.beginPath();
-        ctx.moveTo(sx, ob.y + spikeH);
+        ctx.moveTo(sx, ob.y + ob.h);
         ctx.lineTo(sx + step / 2, ob.y);
-        ctx.lineTo(sx + step, ob.y + spikeH);
+        ctx.lineTo(sx + step, ob.y + ob.h);
         ctx.closePath();
         ctx.fill();
       }
     }
   });
 
-  // UI: Score
+  // HUD: Score y vidas
   ctx.fillStyle = 'white';
   ctx.font = '18px Arial';
   ctx.fillText('Score: ' + Math.floor(score), 12, 28);
   ctx.fillStyle = 'rgba(255,255,255,0.6)';
   ctx.fillText('High: ' + Math.floor(highScore), 12, 50);
 
+  const heartSize = 16;
+  for (let i = 0; i < lives; i++) {
+    drawHeart(20 + i * (heartSize + 8), 70, heartSize, '#ff3366');
+  }
+
+  // Flash rojo
+  if (hitFlash > 0) {
+    ctx.fillStyle = `rgba(255,0,0,${hitFlash / 10})`;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  }
+
+  // Game over overlay
   if (!running) {
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -203,13 +237,17 @@ function draw() {
   }
 }
 
-function gameOver() {
-  running = false;
-  if (score > highScore) highScore = Math.floor(score);
+function loseLife() {
+  lives--;
+  hitFlash = 10;
+
+  if (lives <= 0) {
+    running = false;
+    if (score > highScore) highScore = Math.floor(score);
+  }
 }
 
 function restart() {
-  // reset
   running = true;
   score = 0;
   obstacles = [];
@@ -218,6 +256,8 @@ function restart() {
   player.vy = 0;
   player.onGround = true;
   gameSpeed = 5;
+  lives = 3;
+  hitFlash = 0;
 }
 
 canvas.addEventListener('click', () => { if (!running) restart(); });
