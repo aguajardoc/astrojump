@@ -46,7 +46,14 @@ const player = {
 // Obstáculos
 let obstacles = [];
 let spawnTimer = 0;
-const spawnInterval = 90; // frames between spawns (aprox)
+// spawn interval randomized to support variable spacing (frames)
+const minSpawnInterval = 45;
+const maxSpawnInterval = 140;
+let spawnInterval = Math.floor((minSpawnInterval + maxSpawnInterval) / 2); // initial value
+
+function randomSpawnInterval() {
+  return Math.floor(Math.random() * (maxSpawnInterval - minSpawnInterval + 1)) + minSpawnInterval;
+}
 
 // Input
 function jump() {
@@ -73,8 +80,18 @@ canvas.addEventListener('touchstart', (e) => { e.preventDefault(); jump(); }, {p
 function createObstacle() {
   const type = Math.random() < 0.25 ? 'spike' : 'block';
   const width = type === 'block' ? 40 + Math.floor(Math.random() * 40) : 36;
-  const height = type === 'block' ? 30 + Math.floor(Math.random() * 80) : 36;
-  const y = type === 'block' ? (groundY - height) : (groundY - height);
+  let height = type === 'block' ? 30 + Math.floor(Math.random() * 80) : 36;
+
+  // If you want blocks to be taller for a double-jump branch, enable this flag.
+  // Currently we only double blocks (not spikes) to keep spike behavior predictable.
+  const doubleBlockHeight = true;
+  if (type === 'block' && doubleBlockHeight) {
+    // Double the block height but cap so obstacles never exceed the playable area.
+    const maxAllowed = Math.max(20, groundY - 20);
+    height = Math.min(height * 2, maxAllowed);
+  }
+
+  const y = groundY - height;
 
   obstacles.push({
     x: WIDTH + 60,
@@ -112,6 +129,8 @@ function update() {
   if (spawnTimer > spawnInterval) {
     spawnTimer = 0;
     createObstacle();
+    // pick the next random spawn interval
+    spawnInterval = randomSpawnInterval();
   }
 
   // Mover obstáculos
