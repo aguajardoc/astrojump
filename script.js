@@ -306,7 +306,7 @@ function update() {
   }
 
   // 3. Check if a *new* transition should start
-  const currentMilestone = Math.floor(score / 20); // Trigger every 50 points
+  const currentMilestone = Math.floor(score / 100); // Trigger every x points
   if (currentMilestone > lastScoreMilestone && !isTransitioning) {
     isTransitioning = true;
     transitionStartTime = now;
