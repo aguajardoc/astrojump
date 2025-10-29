@@ -1,6 +1,7 @@
 # Astrojump
 
-Made for TC1001S @ Tec de Monterrey
+Made for TC1001S @ Tec de Monterrey, intended for practice on the use of GitHub.
+The entire codebase was generated with LLMs, as the purpose of this project is not to create, but to manage.
 
 A small 2D arcade platformer where the player jumps between platforms, collects points, and avoids obstacles. Intended as a lightweight web/desktop prototype for learning game mechanics and rapid iteration.
 
