@@ -37,9 +37,9 @@ let lifeFlash = 0;
 // Jugador
 const player = {
   x: 120,
-  size: 42,
-  y: groundY - 42,
-  prevY: groundY - 42,
+  size: 80,
+  y: groundY - 80,
+  prevY: groundY - 80,
   vy: 0,
   gravity: 0.75,
   jumpPower: -15,
@@ -47,8 +47,26 @@ const player = {
   maxJump: 2,
   jumpsUsed: 0,
   onGround: true,
-  color: '#00d1ff'
+  color: "#00d1ff",
+  sprite: new Image(),
+  spriteLoaded: false,
 };
+
+player.sprite.onload = () => {
+  player.spriteLoaded = true;
+  console.log(
+    "astronaut sprite loaded",
+    player.sprite.naturalWidth,
+    "x",
+    player.sprite.naturalHeight
+  );
+};
+
+player.sprite.onerror = (e) => {
+  console.error("Failed to load astronaut sprite:", player.sprite.src, e);
+};
+
+player.sprite.src = "assets/personaje/astronaut.png";
 
 // Obstáculos
 let obstacles = [];
@@ -68,10 +86,38 @@ let lastScoreMilestone = 0;
 
 // Paletas de color
 const palettes = [
-  { skyTop: '#0a0111', skyBottom: '#2a0845', ground: '#1a1a1a', fissure: '#ff4000', particle: 'rgba(200,180,180,0.4)', volcano: '#1f0322' },
-  { skyTop: '#4d0000', skyBottom: '#b30000', ground: '#2b0f00', fissure: '#ffff00', particle: 'rgba(50,50,50,0.6)', volcano: '#3d0000' },
-  { skyTop: '#2b3a1a', skyBottom: '#576d3a', ground: '#2f2f2f', fissure: '#00ff00', particle: 'rgba(200,255,200,0.3)', volcano: '#1a2012' },
-  { skyTop: '#0f0f2b', skyBottom: '#3c1a4b', ground: '#0b0c10', fissure: '#00f2ff', particle: 'rgba(220,220,255,0.4)', volcano: '#07071a' }
+  {
+    skyTop: "#0a0111",
+    skyBottom: "#2a0845",
+    ground: "#1a1a1a",
+    fissure: "#ff4000",
+    particle: "rgba(200,180,180,0.4)",
+    volcano: "#1f0322",
+  },
+  {
+    skyTop: "#4d0000",
+    skyBottom: "#b30000",
+    ground: "#2b0f00",
+    fissure: "#ffff00",
+    particle: "rgba(50,50,50,0.6)",
+    volcano: "#3d0000",
+  },
+  {
+    skyTop: "#2b3a1a",
+    skyBottom: "#576d3a",
+    ground: "#2f2f2f",
+    fissure: "#00ff00",
+    particle: "rgba(200,255,200,0.3)",
+    volcano: "#1a2012",
+  },
+  {
+    skyTop: "#0f0f2b",
+    skyBottom: "#3c1a4b",
+    ground: "#0b0c10",
+    fissure: "#00f2ff",
+    particle: "rgba(220,220,255,0.4)",
+    volcano: "#07071a",
+  },
 ];
 
 let parsedPalettes = [];
@@ -87,7 +133,7 @@ function initBackground() {
       y: Math.random() * HEIGHT,
       speed: 0.5 + Math.random() * 1.5,
       drift: -0.3 + Math.random() * 0.6,
-      size: 1 + Math.random() * 2.5
+      size: 1 + Math.random() * 2.5,
     });
   }
 
@@ -101,7 +147,7 @@ function initBackground() {
 
     for (let i = 0; i < count; i++) {
       layerVolcanoes.push({
-        x: (i * (WIDTH / (count - 1))) + Math.random() * 200 - 100,
+        x: i * (WIDTH / (count - 1)) + Math.random() * 200 - 100,
         w: width + Math.random() * 70,
         h: baseHeight + Math.random() * 50,
         parallax: parallaxFactor
@@ -117,22 +163,33 @@ function lerp(a, b, t) {
 }
 
 function parseColor(colorStr) {
-  if (colorStr.startsWith('rgba')) {
+  if (colorStr.startsWith("rgba")) {
     const p = colorStr.match(/[\d.]+/g);
     return { r: +p[0], g: +p[1], b: +p[2], a: +p[3] };
   }
   let hex = colorStr.slice(1);
-  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+  if (hex.length === 3)
+    hex = hex
+      .split("")
+      .map((c) => c + c)
+      .join("");
   const val = parseInt(hex, 16);
   return { r: (val >> 16) & 255, g: (val >> 8) & 255, b: val & 255, a: 1 };
 }
 
 function rgbaToString(c) {
-  return `rgba(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)}, ${c.a})`;
+  return `rgba(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)}, ${
+    c.a
+  })`;
 }
 
 function lerpColorObjects(a, b, t) {
-  return { r: lerp(a.r, b.r, t), g: lerp(a.g, b.g, t), b: lerp(a.b, b.b, t), a: lerp(a.a, b.a, t) };
+  return {
+    r: lerp(a.r, b.r, t),
+    g: lerp(a.g, b.g, t),
+    b: lerp(a.b, b.b, t),
+    a: lerp(a.a, b.a, t),
+  };
 }
 
 function initPalettes() {
@@ -148,15 +205,20 @@ function initPalettes() {
 
 function updateBackground() {
   if (!running) return;
-  particles.forEach(p => {
+
+  particles.forEach((p) => {
     p.y += p.speed;
     p.x += p.drift;
-    if (p.y > HEIGHT + 10) { p.y = -10; p.x = Math.random() * WIDTH; }
+    if (p.y > HEIGHT + 10) {
+      p.y = -10;
+      p.x = Math.random() * WIDTH;
+    }
     if (p.x < -10) p.x = WIDTH + 10;
     if (p.x > WIDTH + 10) p.x = -10;
   });
-  volcanoes.forEach(layer => {
-    layer.forEach(v => {
+
+  volcanoes.forEach((layer) => {
+    layer.forEach((v) => {
       v.x -= gameSpeed * v.parallax;
       if (v.x + v.w < -150) v.x = WIDTH + 150 + Math.random() * 100;
     });
@@ -178,21 +240,32 @@ function jump() {
   }
 }
 
-window.addEventListener('keydown', e => {
-  if (e.code === 'Space' || e.code === 'ArrowUp') {
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space" || e.code === "ArrowUp") {
     e.preventDefault();
     jump();
   }
-  if (e.key === 'r' || e.key === 'R') restart();
+  if (e.key === "r" || e.key === "R") {
+    restart();
+  }
 });
-canvas.addEventListener('mousedown', jump);
-canvas.addEventListener('touchstart', e => { e.preventDefault(); jump(); }, { passive: false });
+
+canvas.addEventListener("mousedown", jump);
+canvas.addEventListener(
+  "touchstart",
+  (e) => {
+    e.preventDefault();
+    jump();
+  },
+  { passive: false }
+);
 
 function createObstacle() {
-  const type = Math.random() < 0.25 ? 'spike' : 'block';
-  const width = type === 'block' ? 40 + Math.random() * 40 : 36;
-  const height = type === 'block' ? 30 + Math.random() * 80 : 36;
+  const type = Math.random() < 0.25 ? "spike" : "block";
+  const width = type === "block" ? 40 + Math.floor(Math.random() * 40) : 36;
+  const height = type === "block" ? 30 + Math.floor(Math.random() * 80) : 36;
   const y = groundY - height;
+
   obstacles.push({ x: WIDTH + 60, y, w: width, h: height, type });
 }
 
@@ -207,8 +280,22 @@ function drawHeart(x, y, size, color) {
   const top = size * 0.3;
   ctx.moveTo(x, y + top);
   ctx.bezierCurveTo(x, y, x - size / 2, y, x - size / 2, y + top);
-  ctx.bezierCurveTo(x - size / 2, y + (size + top) / 2, x, y + (size + top) / 1.2, x, y + size);
-  ctx.bezierCurveTo(x, y + (size + top) / 1.2, x + size / 2, y + (size + top) / 2, x + size / 2, y + top);
+  ctx.bezierCurveTo(
+    x - size / 2,
+    y + (size + top) / 2,
+    x,
+    y + (size + top) / 1.2,
+    x,
+    y + size
+  );
+  ctx.bezierCurveTo(
+    x,
+    y + (size + top) / 1.2,
+    x + size / 2,
+    y + (size + top) / 2,
+    x + size / 2,
+    y + top
+  );
   ctx.bezierCurveTo(x + size / 2, y, x, y, x, y + top);
   ctx.closePath();
   ctx.fill();
@@ -220,6 +307,7 @@ function update() {
   if (!running) return;
 
   const now = performance.now();
+
   if (isTransitioning) {
     const elapsed = now - transitionStartTime;
     transitionProgress = Math.min(elapsed / TRANSITION_DURATION_MS, 1);
@@ -241,11 +329,14 @@ function update() {
   player.prevY = player.y;
   player.vy += player.gravity;
   player.y += player.vy;
+
   if (player.y + player.size >= groundY) {
     player.y = groundY - player.size;
     player.vy = 0;
     player.onGround = true;
     player.jumpsUsed = 0;
+  } else {
+    player.onGround = false;
   }
 
   spawnTimer++;
@@ -257,24 +348,32 @@ function update() {
   for (let i = obstacles.length - 1; i >= 0; i--) {
     const ob = obstacles[i];
     ob.x -= gameSpeed;
+
     if (ob.x + ob.w < -50) {
       obstacles.splice(i, 1);
       continue;
     }
 
-    const playerBox = { x: player.x, y: player.y, w: player.size, h: player.size };
+    const playerBox = {
+      x: player.x,
+      y: player.y,
+      w: player.size,
+      h: player.size,
+    };
     if (rectsOverlap(playerBox, ob)) {
       const prevBottom = player.prevY + player.size;
       const currBottom = player.y + player.size;
       const obTop = ob.y;
 
-      const landed = (prevBottom <= obTop && currBottom >= obTop && player.vy >= 0);
-      if (ob.type === 'block' && landed) {
+      const landed =
+        prevBottom <= obTop && currBottom >= obTop && player.vy >= 0;
+      if (ob.type === "block" && landed) {
         player.y = obTop - player.size;
         player.vy = 0;
         player.onGround = true;
+        player.jumpsUsed = 0;
       } else {
-        loseLife(i); // 🔥 solo elimina el obstáculo que causa daño
+        loseLife(i);
       }
     }
   }
@@ -288,12 +387,12 @@ function update() {
   if (lifeFlash > 0) lifeFlash--;
 }
 
-// 💔 Pierde una vida (solo elimina ese obstáculo)
+// 💔 Pierde una vida
 function loseLife(index) {
   lives--;
   hitFlash = 10;
   lifeFlash = 15;
-  obstacles.splice(index, 1); // solo ese obstáculo
+  obstacles.splice(index, 1);
 
   if (lives <= 0) {
     running = false;
@@ -314,6 +413,8 @@ function restart() {
   player.onGround = true;
   player.jumpsUsed = 0;
   gameSpeed = 5;
+  hitFlash = 0;
+  lifeFlash = 0;
   initBackground();
   currentAestheticIndex = 0;
   nextAestheticIndex = 0;
@@ -322,7 +423,9 @@ function restart() {
   lastScoreMilestone = 0;
 }
 
-canvas.addEventListener('click', () => { if (!running) restart(); });
+canvas.addEventListener("click", () => {
+  if (!running) restart();
+});
 
 // 🎨 Dibujar todo
 function draw() {
@@ -344,7 +447,7 @@ function draw() {
   volcanoes.forEach((layer, i) => {
     ctx.fillStyle = rgbaToString(volcano);
     ctx.globalAlpha = 0.2 + (i / VOLCANO_LAYERS) * 0.5;
-    layer.forEach(v => {
+    layer.forEach((v) => {
       ctx.beginPath();
       ctx.moveTo(v.x, groundY);
       ctx.lineTo(v.x + v.w / 2, groundY - v.h);
@@ -356,26 +459,31 @@ function draw() {
   ctx.globalAlpha = 1;
 
   ctx.fillStyle = rgbaToString(particle);
-  particles.forEach(p => ctx.fillRect(p.x, p.y, p.size, p.size));
+  particles.forEach((p) => ctx.fillRect(p.x, p.y, p.size, p.size));
 
   ctx.fillStyle = rgbaToString(ground);
   ctx.fillRect(0, groundY, WIDTH, HEIGHT - groundY);
 
-  // Jugador
-  ctx.fillStyle = player.color;
-  ctx.fillRect(player.x, player.y, player.size, player.size);
+  // Dibujar jugador
+  if (player.spriteLoaded) {
+    ctx.drawImage(player.sprite, player.x, player.y, player.size, player.size);
+  } else {
+    ctx.fillStyle = player.color;
+    ctx.fillRect(player.x, player.y, player.size, player.size);
+  }
 
-  // Obstáculos
-  obstacles.forEach(ob => {
-    ctx.fillStyle = ob.type === 'block' ? '#ff6b6b' : '#ffd166';
-    if (ob.type === 'block') {
+  // Dibujar obstáculos
+  obstacles.forEach((ob) => {
+    if (ob.type === "block") {
+      ctx.fillStyle = "#ff6b6b";
       ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
-      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fillStyle = "rgba(255,255,255,0.06)";
       ctx.fillRect(ob.x, ob.y, ob.w, 6);
-    } else {
-      const spikes = Math.max(2, Math.floor(ob.w / 12));
-      const step = ob.w / spikes;
-      for (let i = 0; i < spikes; i++) {
+    } else if (ob.type === "spike") {
+      ctx.fillStyle = "#ffd166";
+      const spikeCount = Math.max(2, Math.floor(ob.w / 12));
+      const step = ob.w / spikeCount;
+      for (let i = 0; i < spikeCount; i++) {
         const sx = ob.x + i * step;
         ctx.beginPath();
         ctx.moveTo(sx, ob.y + ob.h);
@@ -388,17 +496,17 @@ function draw() {
   });
 
   // HUD
-  ctx.fillStyle = 'white';
-  ctx.font = '18px Arial';
-  ctx.fillText('Score: ' + Math.floor(score), 12, 28);
-  ctx.fillStyle = 'rgba(255,255,255,0.6)';
-  ctx.fillText('High: ' + Math.floor(highScore), 12, 50);
+  ctx.fillStyle = "white";
+  ctx.font = "18px Arial";
+  ctx.fillText("Score: " + Math.floor(score), 12, 28);
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.fillText("High: " + Math.floor(highScore), 12, 50);
 
   const heartSize = 16;
   for (let i = 0; i < 3; i++) {
-    let color = '#ff3366';
-    if (i >= lives) color = 'rgba(255,255,255,0.2)';
-    if (lifeFlash > 0 && i === lives) color = '#ff0000';
+    let color = "#ff3366";
+    if (i >= lives) color = "rgba(255,255,255,0.2)";
+    if (lifeFlash > 0 && i === lives) color = "#ff0000";
     drawHeart(20 + i * (heartSize + 8), 70, heartSize, color);
   }
 
